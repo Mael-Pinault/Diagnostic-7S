@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rapport de diagnostic — Diagnostic 7S</title>
+  <meta name="robots" content="noindex">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/resultats.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <!-- html2pdf -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="r-header no-print">
+    <div class="r-header__inner">
+
+      <a href="index.html" class="r-header__logo">
+        <div class="r-header__logo-mark">7S</div>
+        <span class="r-header__logo-name">Diagnostic 7S</span>
+      </a>
+
+      <div class="r-header__actions">
+        <a href="questionnaire.html" id="btn-new" class="btn btn-outline-dark" style="font-size:0.875rem;padding:0.5rem 1.125rem;">
+          Nouveau diagnostic
+        </a>
+        <button id="btn-export" class="btn btn-primary" style="font-size:0.875rem;padding:0.5rem 1.125rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exporter PDF
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- En-tête visible uniquement à l'impression -->
+  <div class="r-print-header" id="r-print-header">
+    <div class="r-print-header__left">
+      <div class="r-print-header__logo">7S</div>
+      <div>
+        <div class="r-print-header__title">Diagnostic organisationnel</div>
+        <div class="r-print-header__subtitle">Modèle McKinsey 7S — Rapport confidentiel</div>
+      </div>
+    </div>
+    <div class="r-print-header__right">
+      <div class="r-print-header__org" id="print-org-name"></div>
+      <div id="print-date"></div>
+    </div>
+  </div>
+
+  <!-- Contenu dynamique -->
+  <div class="r-main" id="r-main">
+    <!-- Injecté par resultats.js -->
+  </div>
+
+  <!-- Pied de page print -->
+  <div class="r-print-footer" id="r-print-footer">
+    <span>Diagnostic 7S — Document confidentiel</span>
+    <span id="print-footer-org"></span>
+  </div>
+
+  <script type="module" src="assets/js/resultats.js"></script>
+</body>
+</html>

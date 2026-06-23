@@ -1,0 +1,229 @@
+/* ============================================================
+   ANALYSEUR MULTI-SESSIONS
+   ============================================================ */
+
+/* ── Sélecteur de sessions ── */
+.analyser-selector {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+  align-items: flex-start;
+}
+
+/* Slot session */
+.analyser-slot {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  width: 210px;
+  flex-shrink: 0;
+}
+.analyser-slot--loading { opacity: 0.7; }
+.analyser-slot--error { border-color: rgba(220,38,38,0.3); background: rgba(220,38,38,0.02); }
+
+.analyser-slot__top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.analyser-slot__color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.analyser-slot__code {
+  font-family: monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--navy);
+  flex: 1;
+}
+.analyser-slot__remove {
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+.analyser-slot__remove:hover { background: var(--bg); color: var(--navy); }
+.analyser-slot__spinner { display: flex; justify-content: center; padding: 0.75rem 0; }
+.analyser-slot__err { font-size: 0.8rem; color: #b91c1c; }
+.analyser-slot__meta {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Zone ajout */
+.analyser-add {
+  background: var(--bg);
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  width: 210px;
+  flex-shrink: 0;
+}
+.analyser-add__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.75rem;
+}
+
+/* Suggestions */
+.analyser-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.analyser-suggestion {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.analyser-suggestion:hover { border-color: var(--navy); }
+.analyser-suggestion__org {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+.analyser-suggestion__code {
+  font-size: 0.7rem;
+  font-family: monospace;
+  color: var(--text-light);
+  letter-spacing: 0.06em;
+}
+
+/* État vide */
+.analyser-empty {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-light);
+  font-size: 0.9375rem;
+}
+
+/* Légende */
+.analyser-legend {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding: 0.875rem 1.25rem;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.analyser-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+.analyser-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.analyser-legend__label {
+  font-weight: 600;
+  color: var(--navy);
+}
+.analyser-legend__meta { color: var(--text-light); font-size: 0.8rem; }
+
+/* Grille analyse */
+.analyser-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+.analyser-panel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.75rem;
+}
+
+/* Table des écarts */
+.analyser-table { display: flex; flex-direction: column; gap: 0; }
+.analyser-table__head {
+  display: grid;
+  grid-template-columns: 1fr repeat(4, auto);
+  gap: 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-light);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.25rem;
+}
+.analyser-table__row {
+  display: grid;
+  grid-template-columns: 1fr repeat(4, auto);
+  gap: 0 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8375rem;
+  transition: background 0.12s;
+}
+.analyser-table__row:hover { background: var(--bg); }
+.analyser-table__row--high { background: rgba(220,38,38,0.03); }
+.analyser-table__row--high:hover { background: rgba(220,38,38,0.06); }
+.analyser-table__dim {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--navy);
+  font-weight: 500;
+}
+.analyser-table__score {
+  text-align: right;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  font-size: 0.9375rem;
+}
+.analyser-table__gap { text-align: right; }
+
+/* Chips de gap */
+.gap-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.18em 0.6em;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+.gap--low    { background: rgba(34,197,94,0.12);  color: #166534; }
+.gap--medium { background: rgba(245,158,11,0.12); color: #92400e; }
+.gap--high   { background: rgba(220,38,38,0.1);   color: #991b1b; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .analyser-grid { grid-template-columns: 1fr; }
+  .analyser-selector { flex-direction: column; }
+  .analyser-slot, .analyser-add { width: 100%; }
+  .analyser-table__head,
+  .analyser-table__row { font-size: 0.75rem; }
+}

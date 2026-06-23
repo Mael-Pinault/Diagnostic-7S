@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Questionnaire — Diagnostic 7S</title>
+  <meta name="robots" content="noindex">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/questionnaire.css">
+</head>
+<body>
+
+  <div class="q-wrapper">
+
+    <!-- Header fixe avec progression -->
+    <header class="q-header">
+      <div class="q-header__inner">
+
+        <a href="index.html" class="q-header__logo">
+          <div class="q-header__logo-mark">7S</div>
+          <span class="q-header__logo-name">Diagnostic 7S</span>
+        </a>
+
+        <div class="q-header__progress-wrap">
+          <div class="q-progress-track">
+            <div class="q-progress-fill" id="q-progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="q-header__step-label" id="q-step-label">Étape 1 / 8</div>
+        </div>
+
+        <div class="q-header__save-status" id="q-save-status">
+          <span class="save-dot"></span>
+          <span>Prêt</span>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Zone de contenu dynamique -->
+    <main class="q-main" id="q-content">
+      <!-- Injecté par questionnaire.js -->
+    </main>
+
+  </div>
+
+  <script type="module" src="assets/js/questionnaire.js"></script>
+</body>
+</html>
