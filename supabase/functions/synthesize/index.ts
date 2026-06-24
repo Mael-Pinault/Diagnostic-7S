@@ -179,19 +179,139 @@ ${recoGuidance}
 Style recommendations : professionnel, concret, 2 phrases max par dimension.`
 }
 
+function buildIndividualPrompt(
+  diagnostic: Record<string, unknown>,
+  userType: string
+): string {
+  const scores = diagnostic.scores as Record<string, number>
+  const global = Math.round(DIM_IDS.map(id => scores[id] || 0).reduce((a, b) => a + b, 0) / DIM_IDS.length)
+
+  const org = [
+    diagnostic.company_name,
+    diagnostic.sector,
+    diagnostic.company_size ? `${diagnostic.company_size} collaborateurs` : null,
+    diagnostic.governance_type,
+  ].filter(Boolean).join(' — ')
+
+  const scoresSection = DIM_IDS.map(id => `- ${DIM_LABELS[id]} : ${scores[id] || 0}/100`).join('\n')
+
+  const recoGuidance = `Pour chaque dimension, génère une recommandation adaptée à son score :
+- score < 40 : action corrective urgente et concrète
+- score 40–59 : plan de développement structuré, levier prioritaire
+- score 60–74 : optimisation ciblée, consolidation progressive
+- score ≥ 75 : capitalisation sur l'acquis, maintien et diffusion`
+
+  const recoFormat = DIM_IDS.map(id => `    { "id": "${id}", "label": "<4-6 mots>", "text": "<2-3 phrases>" }`).join(',\n')
+
+  if (userType === 'consultant') {
+    return `Tu es un consultant senior en stratégie et organisation mandaté pour réaliser un diagnostic externe indépendant.
+
+Organisation analysée : ${org}.
+
+Scores 7S — évaluation externe :
+${scoresSection}
+Score global d'alignement : ${global}/100
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte avant ou après :
+{
+  "synthesis": "<constat de diagnostic externe 220-250 mots, 4 paragraphes courts : (1) lecture globale et dynamique organisationnelle observée (2) points de force dimensions ≥ 70 et ce qu'ils révèlent sur la maturité de l'organisation (3) zones de fragilité dimensions < 60 et risques associés pour la performance (4) orientations d'intervention prioritaires. Style : professionnel, regard externe, troisième personne, pas de formules creuses.>",
+  "recommendations": [
+${recoFormat}
+  ]
+}
+
+${recoGuidance}
+Style recommendations : professionnel, concret, posture consultant externe, 2 phrases max par dimension.`
+  }
+
+  return `Tu es un consultant senior en stratégie et organisation accompagnant un dirigeant dans l'analyse de son auto-diagnostic.
+
+Organisation : ${org}.
+
+Scores 7S — auto-évaluation du dirigeant :
+${scoresSection}
+Score global d'alignement : ${global}/100
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte avant ou après :
+{
+  "synthesis": "<analyse de l'auto-diagnostic 220-250 mots, 4 paragraphes courts : (1) lecture globale du positionnement organisationnel actuel (2) points de force dimensions ≥ 70 et leviers à valoriser pour le dirigeant (3) zones de fragilité dimensions < 60 et axes de travail prioritaires (4) orientations stratégiques et prochaines décisions recommandées. Style : professionnel, adressé au dirigeant (\"votre organisation\"), pas de formules creuses.>",
+  "recommendations": [
+${recoFormat}
+  ]
+}
+
+${recoGuidance}
+Style recommendations : professionnel, concret, adressé au dirigeant, 2 phrases max par dimension.`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { sessionCode, force } = await req.json()
-    if (!sessionCode) throw new Error('sessionCode requis')
+    const { sessionCode, diagnosticId, force } = await req.json()
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    // ── Mode diagnostic individuel ──────────────────────────────────────────
+    if (diagnosticId) {
+      const { data: diagnostic, error: diagErr } = await supabase
+        .from('diagnostics')
+        .select('*')
+        .eq('id', diagnosticId)
+        .single()
+
+      if (diagErr || !diagnostic) throw new Error('Diagnostic introuvable')
+      if (!diagnostic.scores) throw new Error('Scores manquants')
+
+      const userType = (diagnostic.user_type as string) || 'dirigeant'
+      const prompt = buildIndividualPrompt(diagnostic, userType)
+
+      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      })
+
+      if (!claudeRes.ok) {
+        const body = await claudeRes.text()
+        throw new Error(`Anthropic error ${claudeRes.status}: ${body}`)
+      }
+
+      const claudeData = await claudeRes.json()
+      const raw: string = claudeData.content?.[0]?.text ?? ''
+      if (!raw) throw new Error('Réponse vide de l\'API')
+
+      let synthesis = ''
+      let recommendations: unknown[] = []
+      try {
+        const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim()
+        const parsed = JSON.parse(cleaned)
+        synthesis = parsed.synthesis ?? ''
+        recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : []
+      } catch {
+        synthesis = raw
+      }
+
+      if (!synthesis) throw new Error('Synthèse vide dans la réponse')
+
+      return new Response(JSON.stringify({ synthesis, recommendations, cached: false }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (!sessionCode) throw new Error('sessionCode requis')
 
     const { data: session, error: sessErr } = await supabase
       .from('sessions')
