@@ -69,9 +69,14 @@ export default function Resultats() {
   const [data, setData]             = useState(null)
   const [scores, setScores]         = useState(null)
   const [globalScore, setGlobalScore] = useState(null)
+  const [diagId, setDiagId]         = useState(null)
   const [isPrintMode, setIsPrintMode] = useState(false)
   const [printImgSrc, setPrintImgSrc] = useState(null)
   const [exportBtn, setExportBtn]   = useState({ disabled: false })
+  const [synthesis, setSynthesis]   = useState(null)
+  const [aiRecos, setAiRecos]       = useState(null)
+  const [synthLoading, setSynthLoading] = useState(false)
+  const [synthError, setSynthError] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -93,6 +98,7 @@ export default function Resultats() {
             setData(row)
             setScores(sc)
             setGlobalScore(gs)
+            setDiagId(row.id)
             document.title = `Diagnostic 7S — ${row.company_name || 'Organisation'}`
             setStatus('ok')
             return
@@ -137,6 +143,29 @@ export default function Resultats() {
       })
     }, 300)
   }, [status])
+
+  // Auto-generate synthesis when data is loaded
+  useEffect(() => {
+    if (status === 'ok' && diagId) generateSynthesis()
+  }, [status, diagId])
+
+  async function generateSynthesis() {
+    setSynthLoading(true)
+    setSynthError(null)
+    try {
+      const { data: res, error } = await supabase.functions.invoke('synthesize', {
+        body: { diagnosticId: diagId },
+      })
+      if (error) throw new Error(error.message)
+      if (res?.error) throw new Error(res.error)
+      setSynthesis(res.synthesis)
+      if (res.recommendations) setAiRecos(res.recommendations)
+    } catch (e) {
+      setSynthError(e.message ?? 'Erreur lors de la génération')
+    } finally {
+      setSynthLoading(false)
+    }
+  }
 
   function handleExport() {
     setExportBtn({ disabled: true })
@@ -392,11 +421,65 @@ export default function Resultats() {
           </div>
         </motion.div>
 
+        {/* SYNTHÈSE IA */}
+        <motion.div className="r-section-title r-section-title--break" variants={fadeUp}>Synthèse & analyse</motion.div>
+
+        <motion.div className="r-card" style={{ marginBottom: '1.5rem' }} variants={fadeUp}>
+          <div className="synthesis-block">
+            <div className="synthesis-block__header">
+              <div className="synthesis-block__title">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Synthèse narrative
+              </div>
+              {synthesis && !synthLoading && (
+                <button className="synthesis-regen-btn" onClick={generateSynthesis}>↺ Régénérer</button>
+              )}
+            </div>
+            {synthLoading ? (
+              <div className="synthesis-block__loading">
+                <div className="r-spinner" style={{ width: 20, height: 20 }} />
+                <span>Analyse en cours…</span>
+              </div>
+            ) : synthesis ? (
+              <div className="synthesis-block__content">
+                {synthesis.split('\n\n').filter(Boolean).map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
+            ) : (
+              <div className="synthesis-block__empty">
+                {synthError && <p className="synthesis-block__error">{synthError}</p>}
+                {!synthError && <p className="synthesis-block__hint">Constat rédigé par IA à partir des scores organisationnels.</p>}
+              </div>
+            )}
+          </div>
+        </motion.div>
+
         {/* RECOMMANDATIONS */}
         <motion.div className="r-section-title r-section-title--break" variants={fadeUp}>Recommandations par dimension</motion.div>
 
         <motion.div className="r-reco-grid" variants={stagger}>
-          {recoSorted.map(dim => {
+          {(aiRecos ? aiRecos.map(r => ({ ...recoSorted.find(d => d.id === r.id), ...r })) : recoSorted).map(dim => {
+            if (aiRecos) {
+              const r = aiRecos.find(r => r.id === dim.id)
+              if (!r) return null
+              const score = scores[dim.id] || 0
+              return (
+                <motion.div key={dim.id} className="r-reco-card" variants={fadeUp}>
+                  <div className="r-reco-card__top">
+                    <div className="r-reco-card__dim">
+                      <span className="r-reco-card__icon">{recoSorted.find(d => d.id === dim.id)?.icon}</span>
+                      <span className="r-reco-card__name">{recoSorted.find(d => d.id === dim.id)?.label}</span>
+                    </div>
+                    <span className="r-reco-card__score">{score}/100</span>
+                  </div>
+                  <div className="r-reco-card__body">
+                    <div className="r-reco-card__label">{r.label}</div>
+                    <div className="r-reco-card__text">{r.text}</div>
+                  </div>
+                </motion.div>
+              )
+            }
             const reco = getReco(dim.id, dim.score)
             if (!reco) return null
             return (
@@ -421,6 +504,19 @@ export default function Resultats() {
             )
           })}
         </motion.div>
+
+        {/* FEUILLE DE ROUTE */}
+        {diagId && (
+          <motion.div variants={fadeUp} style={{ display: 'flex', justifyContent: 'center', padding: '1rem 0 2rem' }}>
+            <Link
+              to={`/feuille-de-route/solo?id=${diagId}`}
+              className="btn btn-primary"
+              style={{ fontSize: '0.9375rem', padding: '0.75rem 2rem' }}
+            >
+              Générer la feuille de route →
+            </Link>
+          </motion.div>
+        )}
 
       </motion.div>
 
