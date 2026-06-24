@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useDocumentMeta } from '../hooks/useDocumentMeta'
 import { motion } from 'framer-motion'
 import html2canvas from 'html2canvas'
@@ -38,6 +38,9 @@ export default function FeuilleDeRoute() {
     description: 'Construisez le plan d\'action organisationnel issu du diagnostic 7S et pilotez l\'avancement des initiatives de transformation.',
   })
   const { code } = useParams()
+  const [searchParams] = useSearchParams()
+  const isSolo = code === 'solo'
+  const soloId = searchParams.get('id')
 
   const [session,   setSession]   = useState(null)
   const [scores,    setScores]    = useState(null)
@@ -51,6 +54,16 @@ export default function FeuilleDeRoute() {
 
   useEffect(() => {
     async function load() {
+      if (isSolo) {
+        if (!soloId) { setError('Identifiant de diagnostic manquant.'); setLoading(false); return }
+        const { data: diag } = await supabase.from('diagnostics').select('*').eq('id', soloId).single()
+        if (!diag) { setError('Diagnostic introuvable.'); setLoading(false); return }
+        setSession({ org_name: diag.company_name, sector: diag.sector, governance_type: diag.governance_type })
+        setScores(diag.scores ?? {})
+        setLoading(false)
+        return
+      }
+
       const { data: sess } = await supabase.from('sessions').select('*').eq('code', code).single()
       if (!sess) { setError('Session introuvable.'); setLoading(false); return }
 
@@ -65,7 +78,7 @@ export default function FeuilleDeRoute() {
       setLoading(false)
     }
     load()
-  }, [code])
+  }, [code, soloId])
 
   // ── Computed ──────────────────────────────────────────────────────────────
   const changeType = scores ? getChangeType(scores) : null
@@ -266,7 +279,7 @@ export default function FeuilleDeRoute() {
         pdf.text(`${p} / ${total}`, pageW - margin, pageH - 5, { align: 'right' })
       }
 
-      pdf.save(`feuille-de-route_${session?.org_name?.replace(/\s+/g, '-') ?? code}.pdf`)
+      pdf.save(`feuille-de-route_${session?.org_name?.replace(/\s+/g, '-') ?? (isSolo ? 'diagnostic' : code)}.pdf`)
     } catch (e) {
       console.error('PDF export failed:', e)
     } finally {
@@ -317,7 +330,7 @@ export default function FeuilleDeRoute() {
               : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exporter PDF</>
             }
           </button>
-          <Link to={`/resultats-session/${code}`} className="fdr-back-btn">← Résultats</Link>
+          <Link to={isSolo ? `/resultats?id=${soloId}` : `/resultats-session/${code}`} className="fdr-back-btn">← Résultats</Link>
         </div>
       </header>
 
