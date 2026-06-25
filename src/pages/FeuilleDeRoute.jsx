@@ -117,30 +117,12 @@ export default function FeuilleDeRoute() {
       const grid  = gridRef.current
       const SCALE = 2
 
-      // Capture row boundaries BEFORE html2canvas (DOM positions are live)
+      // Capture row boundaries before html2canvas (DOM positions are live)
       const gridRect  = grid.getBoundingClientRect()
       const rowEls    = [...grid.querySelectorAll('.fdr-grid__head, .fdr-row')]
       const rowEndsPx = rowEls.map(r => {
         const rect = r.getBoundingClientRect()
-        // +24 canvas-px de marge : compense le reflow html2canvas vs DOM
         return Math.ceil((rect.bottom - gridRect.top) * SCALE) + 24
-      })
-
-      // Capture pill positions from DOM — on les redessine en vecteur jsPDF après
-      const pillData = []
-      grid.querySelectorAll('.fdr-action__lever').forEach(el => {
-        const text     = el.textContent.trim()
-        const leverKey = Object.keys(LEVER).find(k => LEVER[k].label === text)
-        if (!leverKey) return
-        const elRect = el.getBoundingClientRect()
-        pillData.push({
-          text,
-          color:    LEVER[leverKey].color,
-          topPx:    elRect.top    - gridRect.top,
-          leftPx:   elRect.left   - gridRect.left,
-          widthPx:  elRect.width,
-          heightPx: elRect.height,
-        })
       })
 
       const canvas = await html2canvas(grid, {
@@ -150,11 +132,6 @@ export default function FeuilleDeRoute() {
         logging: false,
         windowWidth: grid.scrollWidth,
         windowHeight: grid.scrollHeight,
-        onclone: (_doc, clonedEl) => {
-          clonedEl.querySelectorAll('.fdr-action__lever').forEach(el => {
-            el.style.visibility = 'hidden'
-          })
-        },
       })
 
       const pdf      = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
@@ -217,8 +194,6 @@ export default function FeuilleDeRoute() {
         }
         sliceEndPx = Math.min(sliceEndPx, canvas.height)
 
-        // N'absorber le reste que si c'est un artefact de rendu (pas de frontière de ligne dedans)
-        // → évite de couper du vrai contenu qui déborde légèrement
         const remainPx = canvas.height - sliceEndPx
         const hasContentInRemainder = rowEndsPx.some(b => b > sliceEndPx && b < canvas.height)
         if (remainPx > 0 && remainPx < Math.round(20 * pxPerMm) && !hasContentInRemainder) {
@@ -235,34 +210,6 @@ export default function FeuilleDeRoute() {
 
         const yDest = pageNum === 0 ? headerH + 6 : margin
         pdf.addImage(slice.toDataURL('image/png'), 'PNG', margin, yDest, imgMmW, sliceH / pxPerMm)
-
-        // ── Overlay pills en vecteur jsPDF (évite l'offset de texte html2canvas) ──
-        for (const pill of pillData) {
-          const pillTopPx    = pill.topPx    * SCALE
-          const pillBottomPx = (pill.topPx + pill.heightPx) * SCALE
-          if (pillTopPx < yPx || pillBottomPx > sliceEndPx) continue
-
-          const pillX = margin + (pill.leftPx  * SCALE) / pxPerMm
-          const pillY = yDest  + (pillTopPx - yPx) / pxPerMm
-          const pillW = (pill.widthPx  * SCALE) / pxPerMm
-          const pillH = (pill.heightPx * SCALE) / pxPerMm
-
-          const r = parseInt(pill.color.slice(1, 3), 16)
-          const g = parseInt(pill.color.slice(3, 5), 16)
-          const b = parseInt(pill.color.slice(5, 7), 16)
-          pdf.setFillColor(r, g, b)
-          pdf.roundedRect(pillX, pillY, pillW, pillH, pillH / 2, pillH / 2, 'F')
-
-          pdf.setFont('helvetica', 'bold')
-          pdf.setFontSize(5.5)
-          pdf.setTextColor(255, 255, 255)
-          pdf.text(
-            pill.text.toUpperCase(),
-            pillX + pillW / 2,
-            pillY + pillH / 2,
-            { align: 'center', baseline: 'middle' }
-          )
-        }
 
         yPx = sliceEndPx
         pageNum++
