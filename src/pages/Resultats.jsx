@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useDocumentMeta } from '../hooks/useDocumentMeta'
 import { motion } from 'framer-motion'
@@ -77,6 +77,7 @@ export default function Resultats() {
   const [aiRecos, setAiRecos]       = useState(null)
   const [synthLoading, setSynthLoading] = useState(false)
   const [synthError, setSynthError] = useState(null)
+  const synthFiredRef = useRef(false)
 
   useEffect(() => {
     async function load() {
@@ -144,28 +145,31 @@ export default function Resultats() {
     }, 300)
   }, [status])
 
-  // Auto-generate synthesis when data is loaded
-  useEffect(() => {
-    if (status === 'ok' && diagId) generateSynthesis()
-  }, [status, diagId])
-
-  async function generateSynthesis() {
+  const generateSynthesis = useCallback(async (id) => {
     setSynthLoading(true)
     setSynthError(null)
     try {
       const { data: res, error } = await supabase.functions.invoke('synthesize', {
-        body: { diagnosticId: diagId },
+        body: { diagnosticId: id },
       })
       if (error) throw new Error(error.message)
-      if (res?.error) throw new Error(res.error)
-      setSynthesis(res.synthesis)
-      if (res.recommendations) setAiRecos(res.recommendations)
+      if (!res || res.error) throw new Error(res?.error || 'Réponse invalide du serveur')
+      setSynthesis(typeof res.synthesis === 'string' ? res.synthesis : null)
+      if (Array.isArray(res.recommendations)) setAiRecos(res.recommendations)
     } catch (e) {
       setSynthError(e.message ?? 'Erreur lors de la génération')
     } finally {
       setSynthLoading(false)
     }
-  }
+  }, [])
+
+  // Auto-generate synthesis once when data is ready
+  useEffect(() => {
+    if (status === 'ok' && diagId && !synthFiredRef.current) {
+      synthFiredRef.current = true
+      generateSynthesis(diagId)
+    }
+  }, [status, diagId, generateSynthesis])
 
   function handleExport() {
     setExportBtn({ disabled: true })
@@ -432,7 +436,7 @@ export default function Resultats() {
                 Synthèse narrative
               </div>
               {synthesis && !synthLoading && (
-                <button className="synthesis-regen-btn" onClick={generateSynthesis}>↺ Régénérer</button>
+                <button className="synthesis-regen-btn" onClick={() => generateSynthesis(diagId)}>↺ Régénérer</button>
               )}
             </div>
             {synthLoading ? (
@@ -459,50 +463,51 @@ export default function Resultats() {
         <motion.div className="r-section-title r-section-title--break" variants={fadeUp}>Recommandations par dimension</motion.div>
 
         <motion.div className="r-reco-grid" variants={stagger}>
-          {(aiRecos ? aiRecos.map(r => ({ ...recoSorted.find(d => d.id === r.id), ...r })) : recoSorted).map(dim => {
-            if (aiRecos) {
-              const r = aiRecos.find(r => r.id === dim.id)
-              if (!r) return null
-              const score = scores[dim.id] || 0
-              return (
-                <motion.div key={dim.id} className="r-reco-card" variants={fadeUp}>
-                  <div className="r-reco-card__top">
-                    <div className="r-reco-card__dim">
-                      <span className="r-reco-card__icon">{recoSorted.find(d => d.id === dim.id)?.icon}</span>
-                      <span className="r-reco-card__name">{recoSorted.find(d => d.id === dim.id)?.label}</span>
+          {aiRecos
+            ? aiRecos.map(r => {
+                const dim = recoSorted.find(d => d.id === r.id)
+                if (!dim) return null
+                return (
+                  <motion.div key={r.id} className="r-reco-card" variants={fadeUp}>
+                    <div className="r-reco-card__top">
+                      <div className="r-reco-card__dim">
+                        <span className="r-reco-card__icon">{dim.icon}</span>
+                        <span className="r-reco-card__name">{dim.label}</span>
+                      </div>
+                      <span className="r-reco-card__score">{dim.score}/100</span>
                     </div>
-                    <span className="r-reco-card__score">{score}/100</span>
-                  </div>
-                  <div className="r-reco-card__body">
-                    <div className="r-reco-card__label">{r.label}</div>
-                    <div className="r-reco-card__text">{r.text}</div>
-                  </div>
-                </motion.div>
-              )
-            }
-            const reco = getReco(dim.id, dim.score)
-            if (!reco) return null
-            return (
-              <motion.div key={dim.id} className="r-reco-card" variants={fadeUp}>
-                <div className="r-reco-card__top">
-                  <div className="r-reco-card__dim">
-                    <span className="r-reco-card__icon">{dim.icon}</span>
-                    <span className="r-reco-card__name">{dim.label}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span className="r-reco-card__score">{dim.score}/100</span>
-                    <span className={`r-reco-priority priority--${reco.priority}`}>
-                      {reco.priority === 'high' ? 'Prioritaire' : reco.priority === 'medium' ? 'Moyen terme' : 'À consolider'}
-                    </span>
-                  </div>
-                </div>
-                <div className="r-reco-card__body">
-                  <div className="r-reco-card__label">{reco.label}</div>
-                  <div className="r-reco-card__text">{reco.text}</div>
-                </div>
-              </motion.div>
-            )
-          })}
+                    <div className="r-reco-card__body">
+                      <div className="r-reco-card__label">{r.label}</div>
+                      <div className="r-reco-card__text">{r.text}</div>
+                    </div>
+                  </motion.div>
+                )
+              })
+            : recoSorted.map(dim => {
+                const reco = getReco(dim.id, dim.score)
+                if (!reco) return null
+                return (
+                  <motion.div key={dim.id} className="r-reco-card" variants={fadeUp}>
+                    <div className="r-reco-card__top">
+                      <div className="r-reco-card__dim">
+                        <span className="r-reco-card__icon">{dim.icon}</span>
+                        <span className="r-reco-card__name">{dim.label}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span className="r-reco-card__score">{dim.score}/100</span>
+                        <span className={`r-reco-priority priority--${reco.priority}`}>
+                          {reco.priority === 'high' ? 'Prioritaire' : reco.priority === 'medium' ? 'Moyen terme' : 'À consolider'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="r-reco-card__body">
+                      <div className="r-reco-card__label">{reco.label}</div>
+                      <div className="r-reco-card__text">{reco.text}</div>
+                    </div>
+                  </motion.div>
+                )
+              })
+          }
         </motion.div>
 
         {/* FEUILLE DE ROUTE */}

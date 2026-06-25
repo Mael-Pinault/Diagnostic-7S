@@ -749,3 +749,82 @@ body {
   .r-hero__score { align-self: flex-start; }
   .r-reco-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   SYNTHÈSE IA
+   ============================================================ */
+.synthesis-block {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.synthesis-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.synthesis-block__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.synthesis-block__content p {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+
+.synthesis-block__content p:last-child { margin-bottom: 0; }
+
+.synthesis-block__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.synthesis-block__hint {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.synthesis-block__error {
+  font-size: 0.875rem;
+  color: #b91c1c;
+}
+
+.synthesis-block__loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-light);
+}
+
+.synthesis-regen-btn {
+  font-size: 0.775rem;
+  color: var(--text-light);
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.synthesis-regen-btn:hover {
+  color: var(--navy);
+  border-color: rgba(13, 31, 60, 0.3);
+}
