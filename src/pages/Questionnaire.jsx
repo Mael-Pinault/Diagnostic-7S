@@ -11,6 +11,18 @@ const SECTORS    = ['Industrie & Manufacturing','Services aux entreprises','Cons
 const SIZES      = ['< 10 collaborateurs','10 – 49','50 – 249','250 – 999','1 000 – 4 999','5 000 +']
 const GOVERNANCE = ['Familiale','ETI indépendante','Filiale de groupe','Cotée en bourse','PE / LBO','Secteur public','Association / ESS']
 
+const SITUATION_TYPES = [
+  { value: 'transformation_culturelle',  label: 'Transformation culturelle' },
+  { value: 'fusion_acquisition',          label: 'Fusion-acquisition / intégration post-fusion' },
+  { value: 'scale_up',                    label: 'Scale-up et croissance rapide' },
+  { value: 'restructuration',             label: 'Restructuration / downsizing' },
+  { value: 'transformation_digitale',     label: 'Transformation digitale' },
+  { value: 'changement_leadership',       label: 'Changement de leadership / gouvernance' },
+  { value: 'turnaround',                  label: 'Redressement / turnaround' },
+  { value: 'diagnostic_preventif',        label: 'Diagnostic préventif / audit organisationnel' },
+  { value: 'autre',                        label: 'Autre' },
+]
+
 const slideVariants = {
   enter:  (dir) => ({ opacity: 0, x: dir * 40 }),
   center: { opacity: 1, x: 0 },
@@ -51,6 +63,7 @@ export default function Questionnaire() {
   const [saveStatus, setSaveStatus]   = useState('idle')
   const [error, setError]             = useState('')
   const [unanswered, setUnanswered]   = useState([])
+  const [context, setContext]         = useState({ situation_type: '', situation_type_other: '', problem_description: '', past_actions: '', expected_outcomes: '' })
 
   // Chargement de la session depuis l'URL
   useEffect(() => {
@@ -77,12 +90,16 @@ export default function Questionnaire() {
       })
   }, [sessionCode, sessionRole, sessionName])
 
-  const totalSteps = 1 + DIMENSIONS.length
-  const stepNum    = step === 'profile' ? 0 : step + 1
+  const totalSteps = 2 + DIMENSIONS.length
+  const stepNum    = step === 'profile' ? 0 : step === 'context' ? 1 : typeof step === 'number' ? step + 2 : totalSteps
   const progress   = Math.round((stepNum / totalSteps) * 100)
   const stepLabel  = step === 'profile'
-    ? 'Étape 1 / 8 — Informations'
-    : `Étape ${stepNum + 1} / 8 — ${DIMENSIONS[step].label}`
+    ? 'Étape 1 / 9 — Informations'
+    : step === 'context'
+    ? 'Étape 2 / 9 — Contexte'
+    : typeof step === 'number'
+    ? `Étape ${stepNum + 1} / 9 — ${DIMENSIONS[step].label}`
+    : ''
 
   useEffect(() => {
     if (unanswered.length > 0) {
@@ -122,6 +139,17 @@ export default function Questionnaire() {
       setSaveStatus('saved')
     } catch {
       setSaveStatus('error')
+    }
+    goTo('context', 1)
+  }
+
+  function updateContext(key, value) {
+    setContext(prev => ({ ...prev, [key]: value }))
+  }
+
+  function submitContext() {
+    if (diagnosticId) {
+      supabase.from('diagnostics').update({ context }).eq('id', diagnosticId)
     }
     goTo(0, 1)
   }
@@ -181,7 +209,8 @@ export default function Questionnaire() {
   }
 
   function goPrev() {
-    if (step === 0) goTo('profile', -1)
+    if (step === 'context') goTo('profile', -1)
+    else if (step === 0) goTo('context', -1)
     else goTo(step - 1, -1)
   }
 
@@ -321,6 +350,65 @@ export default function Questionnaire() {
                     <button className="btn btn-primary" onClick={submitProfile}>
                       Commencer le diagnostic
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CONTEXT */}
+            {step === 'context' && (
+              <div className="q-profile">
+                <h2 className="q-profile__title">Contexte de mission</h2>
+                <p className="q-profile__subtitle">
+                  Ces informations permettent à l'IA d'adapter son analyse à votre situation spécifique.
+                  Tous les champs sont optionnels — plus le contexte est riche, plus le rapport sera pertinent.
+                </p>
+
+                <div className="form-grid">
+                  <div className="form-field form-field--full">
+                    <label htmlFor="situation_type">Type de situation ou de mission</label>
+                    <select id="situation_type" value={context.situation_type} onChange={e => updateContext('situation_type', e.target.value)}>
+                      <option value="">— Sélectionner —</option>
+                      {SITUATION_TYPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                  </div>
+
+                  {context.situation_type === 'autre' && (
+                    <div className="form-field form-field--full">
+                      <label htmlFor="situation_other">Précisez</label>
+                      <input id="situation_other" type="text" placeholder="Décrivez le type de situation" value={context.situation_type_other} onChange={e => updateContext('situation_type_other', e.target.value)} />
+                    </div>
+                  )}
+
+                  <div className="form-field form-field--full">
+                    <label htmlFor="problem_description">Problématique identifiée</label>
+                    <textarea id="problem_description" rows={3} placeholder="Décrivez le problème ou l'opportunité qui motive ce diagnostic…" value={context.problem_description} onChange={e => updateContext('problem_description', e.target.value)} />
+                  </div>
+
+                  <div className="form-field form-field--full">
+                    <label htmlFor="past_actions">Actions déjà entreprises <span className="form-note">— optionnel</span></label>
+                    <textarea id="past_actions" rows={3} placeholder="Ce qui a déjà été tenté, et les résultats observés…" value={context.past_actions} onChange={e => updateContext('past_actions', e.target.value)} />
+                  </div>
+
+                  <div className="form-field form-field--full">
+                    <label htmlFor="expected_outcomes">Objectifs attendus <span className="form-note">— optionnel</span></label>
+                    <textarea id="expected_outcomes" rows={2} placeholder="Ce que vous espérez du diagnostic, à quel horizon…" value={context.expected_outcomes} onChange={e => updateContext('expected_outcomes', e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="q-nav">
+                  <div className="q-nav__left">
+                    <button className="btn-ghost" onClick={() => goTo('profile', -1)}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                      Précédent
+                    </button>
+                  </div>
+                  <div className="q-nav__right">
+                    <button className="btn-ghost" onClick={() => goTo(0, 1)}>Passer</button>
+                    <button className="btn btn-primary" onClick={submitContext}>
+                      Continuer
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </button>
                   </div>
                 </div>

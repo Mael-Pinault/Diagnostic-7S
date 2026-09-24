@@ -58,6 +58,32 @@ const CADRAGE_LABELS: Record<string, Record<string, string>> = {
 
 const DIM_IDS = ['strategie', 'structure', 'systemes', 'style', 'staff', 'competences', 'valeurs']
 
+const SITUATION_LABELS: Record<string, string> = {
+  transformation_culturelle: 'Transformation culturelle',
+  fusion_acquisition:        'Fusion-acquisition / intégration post-fusion',
+  scale_up:                  'Scale-up et croissance rapide',
+  restructuration:           'Restructuration / downsizing',
+  transformation_digitale:   'Transformation digitale',
+  changement_leadership:     'Changement de leadership / gouvernance',
+  turnaround:                'Redressement / turnaround',
+  diagnostic_preventif:      'Diagnostic préventif / audit organisationnel',
+}
+
+function buildContextSection(ctx: Record<string, string> | null): string {
+  if (!ctx) return ''
+  const lines: string[] = []
+  if (ctx.situation_type) {
+    const label = ctx.situation_type === 'autre' && ctx.situation_type_other
+      ? ctx.situation_type_other
+      : (SITUATION_LABELS[ctx.situation_type] ?? ctx.situation_type)
+    lines.push(`Type de mission : ${label}`)
+  }
+  if (ctx.problem_description) lines.push(`Problématique : ${ctx.problem_description}`)
+  if (ctx.past_actions)        lines.push(`Actions déjà entreprises : ${ctx.past_actions}`)
+  if (ctx.expected_outcomes)   lines.push(`Objectifs attendus : ${ctx.expected_outcomes}`)
+  return lines.length ? '\n\n' + lines.join('\n') : ''
+}
+
 function computeAvg(diagnostics: Record<string, unknown>[]): Record<string, number> {
   const avg: Record<string, number> = {}
   DIM_IDS.forEach(id => {
@@ -193,6 +219,8 @@ function buildIndividualPrompt(
     diagnostic.governance_type,
   ].filter(Boolean).join(' — ')
 
+  const contextSection = buildContextSection(diagnostic.context as Record<string, string> | null)
+
   const scoresSection = DIM_IDS.map(id => `- ${DIM_LABELS[id]} : ${scores[id] || 0}/100`).join('\n')
 
   const recoGuidance = `Pour chaque dimension, génère une recommandation adaptée à son score :
@@ -206,7 +234,7 @@ function buildIndividualPrompt(
   if (userType === 'consultant') {
     return `Tu es un consultant senior en stratégie et organisation mandaté pour réaliser un diagnostic externe indépendant.
 
-Organisation analysée : ${org}.
+Organisation analysée : ${org}.${contextSection}
 
 Scores 7S — évaluation externe :
 ${scoresSection}
@@ -226,7 +254,7 @@ Style recommendations : professionnel, concret, posture consultant externe, 2 ph
 
   return `Tu es un consultant senior en stratégie et organisation accompagnant un dirigeant dans l'analyse de son auto-diagnostic.
 
-Organisation : ${org}.
+Organisation : ${org}.${contextSection}
 
 Scores 7S — auto-évaluation du dirigeant :
 ${scoresSection}
@@ -402,3 +430,4 @@ Deno.serve(async (req) => {
     })
   }
 })
+1
