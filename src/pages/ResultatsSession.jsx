@@ -430,6 +430,51 @@ export default function ResultatsSession() {
         )
       })()}
 
+      {/* ── CONTEXTE DE MISSION ── */}
+      {session.context && (session.context.situation_type || session.context.problem_description) && (() => {
+        const ctx = session.context
+        const SITUATION_LABELS = {
+          transformation_culturelle: 'Transformation culturelle',
+          fusion_acquisition:        'Fusion-acquisition',
+          scale_up:                  'Scale-up',
+          restructuration:           'Restructuration',
+          transformation_digitale:   'Transformation digitale',
+          changement_leadership:     'Changement de leadership',
+          turnaround:                'Redressement / turnaround',
+          diagnostic_preventif:      'Diagnostic préventif',
+        }
+        const typeLabel = ctx.situation_type === 'autre' && ctx.situation_type_other
+          ? ctx.situation_type_other
+          : (SITUATION_LABELS[ctx.situation_type] ?? ctx.situation_type)
+        return (
+          <div className="mission-context">
+            <div className="mission-context__header">
+              <span className="mission-context__label">Contexte de mission</span>
+              {typeLabel && <span className="mission-context__type">{typeLabel}</span>}
+            </div>
+            {ctx.problem_description && (
+              <p className="mission-context__problem">{ctx.problem_description}</p>
+            )}
+            {(ctx.past_actions || ctx.expected_outcomes) && (
+              <div className="mission-context__details">
+                {ctx.past_actions && (
+                  <div className="mission-context__detail">
+                    <span className="mission-context__detail-label">Actions menées</span>
+                    <span className="mission-context__detail-text">{ctx.past_actions}</span>
+                  </div>
+                )}
+                {ctx.expected_outcomes && (
+                  <div className="mission-context__detail">
+                    <span className="mission-context__detail-label">Objectifs attendus</span>
+                    <span className="mission-context__detail-text">{ctx.expected_outcomes}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       <main className="session-results-main container">
 
         {/* ── COMPTEUR RÉPONDANTS ── */}

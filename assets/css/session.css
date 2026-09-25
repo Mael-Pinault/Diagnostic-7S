@@ -973,6 +973,72 @@
 }
 .cadrage-bar__edit:hover { color: var(--navy); }
 
+/* ── Contexte de mission ── */
+.mission-context {
+  padding: 1rem 1.5rem;
+  background: rgba(201,168,76,0.04);
+  border-bottom: 1px solid var(--border);
+}
+
+.mission-context__header {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.625rem;
+}
+
+.mission-context__label {
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.mission-context__type {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.625rem;
+  background: rgba(201,168,76,0.14);
+  border: 1px solid rgba(201,168,76,0.35);
+  border-radius: 999px;
+  color: #7a5c10;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.mission-context__problem {
+  font-size: 0.875rem;
+  color: var(--text);
+  line-height: 1.55;
+  margin-bottom: 0.5rem;
+}
+
+.mission-context__details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mission-context__detail {
+  display: flex;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.mission-context__detail-label {
+  font-weight: 600;
+  color: var(--text-light);
+  flex-shrink: 0;
+  min-width: 130px;
+}
+
+.mission-context__detail-text {
+  color: var(--text);
+}
+
 /* ── Module dirigeant ── */
 .dir-panel {
   background: #fff;

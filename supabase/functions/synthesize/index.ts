@@ -133,6 +133,8 @@ function buildPrompt(
     }
   }
 
+  const contextSection = buildContextSection(session.context as Record<string, string> | null)
+
   const cadrage = session.cadrage as Record<string, string> | null
   let cadrageSection = ''
   if (cadrage) {
@@ -167,7 +169,7 @@ function buildPrompt(
 
     return `Tu es un consultant senior en stratégie et organisation.
 
-Organisation : ${org}.${cadrageSection}
+Organisation : ${org}.${cadrageSection}${contextSection}
 
 Évolution des scores 7S entre T1 (diagnostic initial) et T2 (suivi) — ${diagnostics.length} répondant${diagnostics.length > 1 ? 's' : ''} :
 ${evolutionLines}
@@ -187,7 +189,7 @@ Style recommendations : professionnel, concret, 2 phrases max par dimension. Pre
 
   return `Tu es un consultant senior en stratégie et organisation.
 
-Organisation : ${org}.${cadrageSection}
+Organisation : ${org}.${cadrageSection}${contextSection}
 
 Scores 7S — moyenne sur ${diagnostics.length} répondant${diagnostics.length > 1 ? 's' : ''} :
 ${DIM_IDS.map(id => `- ${DIM_LABELS[id]} : ${avg[id]}/100`).join('\n')}
