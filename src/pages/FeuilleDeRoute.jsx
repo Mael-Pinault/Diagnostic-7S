@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useDocumentMeta } from '../hooks/useDocumentMeta'
 import { motion } from 'framer-motion'
@@ -42,15 +42,20 @@ export default function FeuilleDeRoute() {
   const isSolo = code === 'solo'
   const soloId = searchParams.get('id')
 
-  const [session,   setSession]   = useState(null)
-  const [scores,    setScores]    = useState(null)
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState(null)
-  const [filter,    setFilter]    = useState('all')
-  const [checked,   setChecked]   = useState({})
-  const [exporting, setExporting] = useState(false)
+  const storageKey = isSolo ? `fdr-${soloId}` : `fdr-${code}`
 
-  const gridRef = useRef(null)
+  const [session,      setSession]      = useState(null)
+  const [scores,       setScores]       = useState(null)
+  const [parentScores, setParentScores] = useState(null)
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState(null)
+  const [filter,       setFilter]       = useState('all')
+  const [checked,      setChecked]      = useState(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) || '{}') } catch { return {} }
+  })
+  const [exporting,    setExporting]    = useState(false)
+
+  const pdfRef = useRef(null)
 
   useEffect(() => {
     async function load() {
@@ -75,6 +80,16 @@ export default function FeuilleDeRoute() {
 
       setSession(sess)
       setScores(aggregate(diags ?? []))
+
+      if (sess.parent_session_id) {
+        const { data: parentDiags } = await supabase
+          .from('diagnostics')
+          .select('scores')
+          .eq('session_id', sess.parent_session_id)
+          .eq('completed', true)
+        if (parentDiags?.length) setParentScores(aggregate(parentDiags))
+      }
+
       setLoading(false)
     }
     load()
@@ -84,13 +99,34 @@ export default function FeuilleDeRoute() {
   const changeType = scores ? getChangeType(scores) : null
   const ct         = changeType ? CHANGE_TYPES[changeType] : null
 
+  const dbRecoMap = useMemo(() => {
+    if (!session?.recommendations || !Array.isArray(session.recommendations)) return {}
+    return Object.fromEntries(
+      session.recommendations
+        .filter(r => r.id && r.diagnosis && r.actions)
+        .map(r => [r.id, { diagnosis: r.diagnosis, actions: r.actions }])
+    )
+  }, [session])
+
+  const delta = (scores && parentScores)
+    ? Object.fromEntries(DIMENSIONS.map(d => [d.id, (scores[d.id] ?? 0) - (parentScores[d.id] ?? 0)]))
+    : null
+
+  const currentGlobal = scores
+    ? Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length)
+    : null
+  const parentGlobal = parentScores
+    ? Math.round(Object.values(parentScores).reduce((a, b) => a + b, 0) / Object.values(parentScores).length)
+    : null
+
   const rows = scores
     ? DIMENSIONS
         .map(dim => ({
           dim,
-          score: scores[dim.id] ?? 0,
-          band:  scoreBand(scores[dim.id] ?? 0),
-          reco:  getRecoV2(dim.id, scores[dim.id] ?? 0),
+          score:    scores[dim.id] ?? 0,
+          band:     scoreBand(scores[dim.id] ?? 0),
+          reco:     dbRecoMap[dim.id] ?? getRecoV2(dim.id, scores[dim.id] ?? 0),
+          dimDelta: delta?.[dim.id] ?? null,
         }))
         .sort((a, b) => a.score - b.score)
     : []
@@ -106,15 +142,24 @@ export default function FeuilleDeRoute() {
   const pct = totalActions > 0 ? Math.round((doneCount / totalActions) * 100) : 0
 
   function toggleCheck(key) {
-    setChecked(prev => ({ ...prev, [key]: !prev[key] }))
+    setChecked(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+
+  function resetChecked() {
+    setChecked({})
+    try { localStorage.removeItem(storageKey) } catch {}
   }
 
   // ── PDF Export ────────────────────────────────────────────────────────────
   async function exportPDF() {
-    if (!gridRef.current) return
+    if (!pdfRef.current) return
     setExporting(true)
     try {
-      const grid  = gridRef.current
+      const grid  = pdfRef.current
       const SCALE = 2
 
       // Capture row boundaries before html2canvas (DOM positions are live)
@@ -307,6 +352,11 @@ export default function FeuilleDeRoute() {
             <span className="fdr-progress__label">
               <strong>{doneCount}</strong> / {totalActions} actions réalisées — <strong>{pct}%</strong>
             </span>
+            {doneCount > 0 && (
+              <button className="fdr-reset-btn" onClick={resetChecked} title="Réinitialiser la progression">
+                Réinitialiser
+              </button>
+            )}
           </div>
 
           {/* ── Toolbar ── */}
@@ -329,68 +379,160 @@ export default function FeuilleDeRoute() {
             </div>
           </div>
 
-          {/* ── Grid ── */}
-          <div className="fdr-grid" ref={gridRef}>
+          {/* ── PDF zone : contexte + bilan + grille ── */}
+          <div ref={pdfRef} className="fdr-pdf-zone">
 
-            {/* Head */}
-            <div className="fdr-grid__head">
-              <div>Dimension</div>
-              {PHASES.map(p => (
-                <div key={p.key}>
-                  {p.label}
-                  <span className="fdr-head-sub">{p.sub}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Rows */}
-            {filteredRows.map(({ dim, score, band, reco }) => (
-              <div key={dim.id} className={`fdr-row fdr-row--${band}`}>
-
-                {/* Dimension cell */}
-                <div className="fdr-row__dim">
-                  <div className="fdr-row__dim-top">
-                    <span className="fdr-row__icon">{dim.icon}</span>
-                    <span className="fdr-row__label">{dim.label}</span>
-                    <span className="fdr-row__score-pill">{score}/100</span>
+            {/* Mission context */}
+            {!isSolo && session?.context && (session.context.situation_type || session.context.problem_description) && (() => {
+              const ctx = session.context
+              const SITUATION_LABELS = {
+                transformation_culturelle: 'Transformation culturelle',
+                fusion_acquisition:        'Fusion / Acquisition',
+                restructuration:           'Restructuration',
+                croissance_rapide:         'Croissance rapide',
+                numerique:                 'Transformation numérique',
+                international:             'Développement international',
+                redressement:              'Redressement',
+                changement_gouvernance:    'Changement de gouvernance',
+                autre:                     'Autre',
+              }
+              const typeLabel = ctx.situation_type === 'autre' && ctx.situation_type_other
+                ? ctx.situation_type_other
+                : (SITUATION_LABELS[ctx.situation_type] ?? ctx.situation_type)
+              return (
+                <div className="fdr-mission-context">
+                  <div className="fdr-mission-context__header">
+                    <span className="fdr-mission-context__label">Contexte de mission</span>
+                    {typeLabel && <span className="fdr-mission-context__type">{typeLabel}</span>}
                   </div>
-                  {reco && <p className="fdr-row__diagnosis">{reco.diagnosis}</p>}
-                </div>
-
-                {/* Phase cells */}
-                {PHASES.map(phase => (
-                  <div key={phase.key} className="fdr-row__phase" data-phase={phase.label}>
-                    {reco?.actions[phase.key]?.map((action, i) => {
-                      const key  = `${dim.id}-${phase.key}-${i}`
-                      const done = !!checked[key]
-                      return (
-                        <div
-                          key={i}
-                          className={`fdr-action${done ? ' fdr-action--done' : ''}`}
-                          onClick={() => toggleCheck(key)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={e => e.key === 'Enter' && toggleCheck(key)}
-                        >
-                          <div className="fdr-action__top">
-                            <span
-                              className="fdr-action__lever"
-                              style={{ background: LEVER[action.lever]?.color ?? '#888' }}
-                            >
-                              {LEVER[action.lever]?.label}
-                            </span>
-                            <span className="fdr-action__check">
-                              {done && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
-                            </span>
-                          </div>
-                          <span className="fdr-action__text">{action.text}</span>
+                  {ctx.problem_description && <p className="fdr-mission-context__problem">{ctx.problem_description}</p>}
+                  {(ctx.past_actions || ctx.expected_outcomes) && (
+                    <div className="fdr-mission-context__details">
+                      {ctx.past_actions && (
+                        <div className="fdr-mission-context__detail">
+                          <span className="fdr-mission-context__detail-label">Actions passées</span>
+                          <span>{ctx.past_actions}</span>
                         </div>
-                      )
-                    })}
+                      )}
+                      {ctx.expected_outcomes && (
+                        <div className="fdr-mission-context__detail">
+                          <span className="fdr-mission-context__detail-label">Résultats attendus</span>
+                          <span>{ctx.expected_outcomes}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Bilan T1 → T2 */}
+            {delta && (() => {
+              const progressCount = DIMENSIONS.filter(d => (delta[d.id] ?? 0) > 0).length
+              const allDeltas     = DIMENSIONS.map(d => ({ label: d.label, val: delta[d.id] ?? 0 }))
+              const worstDim      = allDeltas.reduce((w, d) => d.val < w.val ? d : w)
+              const deltaGlobal   = currentGlobal - parentGlobal
+              return (
+                <div className="fdr-bilan">
+                  <span className="fdr-bilan__title">Progression T1 → T2</span>
+                  <div className="fdr-bilan__stats">
+                    <div className="fdr-bilan__stat">
+                      <span className="fdr-bilan__stat-value">
+                        {parentGlobal} <span className="fdr-bilan__arrow">→</span> {currentGlobal}
+                        <span className={`fdr-bilan__global-delta ${deltaGlobal >= 0 ? 'fdr-bilan__delta--up' : 'fdr-bilan__delta--down'}`}>
+                          {deltaGlobal >= 0 ? '+' : ''}{deltaGlobal}
+                        </span>
+                      </span>
+                      <span className="fdr-bilan__stat-label">Score global /100</span>
+                    </div>
+                    <div className="fdr-bilan__divider" />
+                    <div className="fdr-bilan__stat">
+                      <span className="fdr-bilan__stat-value">
+                        {progressCount}<span className="fdr-bilan__stat-denom">/7</span>
+                      </span>
+                      <span className="fdr-bilan__stat-label">Dimensions en progrès</span>
+                    </div>
+                    <div className="fdr-bilan__divider" />
+                    <div className="fdr-bilan__stat">
+                      <span className="fdr-bilan__stat-value fdr-bilan__stat--warning">
+                        {worstDim.label}
+                        <span className="fdr-bilan__dim-delta">{worstDim.val >= 0 ? '+' : ''}{worstDim.val}</span>
+                      </span>
+                      <span className="fdr-bilan__stat-label">Point de résistance</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Grid */}
+            <div className="fdr-grid">
+
+              {/* Head */}
+              <div className="fdr-grid__head">
+                <div>Dimension</div>
+                {PHASES.map(p => (
+                  <div key={p.key}>
+                    {p.label}
+                    <span className="fdr-head-sub">{p.sub}</span>
                   </div>
                 ))}
               </div>
-            ))}
+
+              {/* Rows */}
+              {filteredRows.map(({ dim, score, band, reco, dimDelta }) => (
+                <div key={dim.id} className={`fdr-row fdr-row--${band}`}>
+
+                  {/* Dimension cell */}
+                  <div className="fdr-row__dim">
+                    <div className="fdr-row__dim-top">
+                      <span className="fdr-row__icon">{dim.icon}</span>
+                      <span className="fdr-row__label">{dim.label}</span>
+                      <span className="fdr-row__score-pill">{score}/100</span>
+                      {dimDelta != null && (
+                        <span className={`fdr-row__delta ${dimDelta > 0 ? 'fdr-row__delta--up' : dimDelta < 0 ? 'fdr-row__delta--down' : 'fdr-row__delta--flat'}`}>
+                          {dimDelta > 0 ? '+' : ''}{dimDelta}
+                        </span>
+                      )}
+                    </div>
+                    {reco && <p className="fdr-row__diagnosis">{reco.diagnosis}</p>}
+                  </div>
+
+                  {/* Phase cells */}
+                  {PHASES.map(phase => (
+                    <div key={phase.key} className="fdr-row__phase" data-phase={phase.label}>
+                      {reco?.actions[phase.key]?.map((action, i) => {
+                        const key  = `${dim.id}-${phase.key}-${i}`
+                        const done = !!checked[key]
+                        return (
+                          <div
+                            key={i}
+                            className={`fdr-action${done ? ' fdr-action--done' : ''}`}
+                            onClick={() => toggleCheck(key)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={e => e.key === 'Enter' && toggleCheck(key)}
+                          >
+                            <div className="fdr-action__top">
+                              <span
+                                className="fdr-action__lever"
+                                style={{ background: LEVER[action.lever]?.color ?? '#888' }}
+                              >
+                                {LEVER[action.lever]?.label}
+                              </span>
+                              <span className="fdr-action__check">
+                                {done && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                              </span>
+                            </div>
+                            <span className="fdr-action__text">{action.text}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </motion.div>
 

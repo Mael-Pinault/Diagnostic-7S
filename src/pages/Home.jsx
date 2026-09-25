@@ -329,6 +329,31 @@ export default function Home() {
         </div>
       </motion.div>
 
+      {/* VIDEO */}
+      <section className="section" id="video">
+        <div className="container">
+          <motion.div className="section-header" variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
+            <span className="section-label">L'outil en action</span>
+            <h2>Comment ça fonctionne ?</h2>
+            <p>Un aperçu complet du workflow — du cadrage initial au plan d'action.</p>
+          </motion.div>
+          <motion.div
+            className="video-wrapper"
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true }}
+          >
+            <video
+              className="video-player"
+              controls
+              preload="metadata"
+              src="https://cnrptukinlcnrgbtlmmt.supabase.co/storage/v1/object/public/video%20tuto/S9-V2-invideo-timeline-export%20(1).mp4"
+            />
+          </motion.div>
+        </div>
+      </section>
+
       {/* POUR QUI */}
       <section className="section section--grey">
         <div className="container">

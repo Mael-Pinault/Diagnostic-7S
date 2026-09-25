@@ -177,7 +177,7 @@ Score global d'alignement : T1 ${parentGlobal}/100 → T2 ${global}/100 (${globa
 
 Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte avant ou après :
 {
-  "synthesis": "<bilan de suivi 220-250 mots, 4 paragraphes courts : (1) bilan global et dynamique observée (2) progressions significatives delta ≥ +7 et ce qu'elles révèlent (3) dimensions encore fragiles score T2 < 60 ou delta faible (4) prochaines priorités et vigilances. Style : professionnel, direct, troisième personne, pas de formules creuses.>",
+  "synthesis": "<bilan de suivi 220-250 mots, 4 paragraphes courts : (1) bilan global et dynamique observée au regard du contexte de mission et des objectifs fixés (2) progressions significatives delta ≥ +7 et ce qu'elles révèlent concrètement (3) dimensions encore fragiles score T2 < 60 ou delta ≤ +3 — résistances à nommer (4) prochaines priorités ancrées dans les objectifs attendus du mandat. Style : professionnel, direct, troisième personne, pas de formules creuses.>",
   "recommendations": [
 ${recoFormat}
   ]
@@ -197,7 +197,7 @@ Score global d'alignement : ${global}/100${roleSection}
 
 Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte avant ou après :
 {
-  "synthesis": "<constat de diagnostic 220-250 mots, 4 paragraphes courts : (1) lecture globale, situation et dynamique à l'œuvre (2) points de force dimensions ≥ 70 (3) zones de fragilité dimensions < 60${session.mode === 'comparison' ? ', écarts de perception entre niveaux si significatifs' : ''} (4) orientation recommandée et priorités d'action. Style : professionnel, direct, troisième personne, pas de formules creuses.>",
+  "synthesis": "<constat de diagnostic 220-250 mots, 4 paragraphes courts : (1) lecture globale ancrée dans le contexte de mission et la situation décrite si précisé (2) points de force dimensions ≥ 70 (3) zones de fragilité dimensions < 60${session.mode === 'comparison' ? ', écarts de perception entre niveaux si significatifs' : ''} (4) orientations d'action directement liées aux objectifs du mandat. Style : professionnel, direct, troisième personne, pas de formules creuses.>",
   "recommendations": [
 ${recoFormat}
   ]
@@ -432,4 +432,3 @@ Deno.serve(async (req) => {
     })
   }
 })
-1
